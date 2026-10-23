@@ -1,6 +1,6 @@
-# [Project name]
+# Dòng Tiền
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Ứng dụng Android theo dõi thu chi, tài sản và khoản nợ cá nhân; dữ liệu mặc định được lưu cục bộ trên thiết bị.
 
 ## Run & Operate
 

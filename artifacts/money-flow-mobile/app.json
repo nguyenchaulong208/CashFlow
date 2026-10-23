@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Quản lý Tài chính Cá nhân",
+    "slug": "money-flow-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "money-flow-mobile",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#F6F8F5"
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {},
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

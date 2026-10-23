@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "Quản lý Tài chính Cá nhân"
+description = "Ứng dụng Android quản lý thu chi, dòng tiền, tài sản và các khoản nợ. Ưu tiên lưu dữ liệu trên thiết bị và hoạt động không cần tài khoản; có thể mở rộng kết nối lịch Google, Gemini và chia sẻ tài chính gia đình."
+version = "1.0.0"
+id = "artifacts/money-flow-mobile"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 25148
+
+[services.development]
+run = "pnpm --filter @workspace/money-flow-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/money-flow-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/money-flow-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "25148"
+BASE_PATH = "/"
