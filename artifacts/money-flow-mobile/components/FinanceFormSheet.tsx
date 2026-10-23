@@ -5,6 +5,7 @@ import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollV
 import { AssetKind, TransactionType } from '@/context/FinanceContext';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { validateDueDate } from '@/utils/debtReminders';
 
 type FormMode = 'transaction' | 'asset' | 'debt';
 interface Props {
@@ -61,6 +62,10 @@ export function FinanceFormSheet({ visible, mode, onClose, onSaveTransaction, on
     }
     if (mode !== 'transaction' && !name.trim()) {
       setError('Vui lòng nhập tên khoản mục.');
+      return;
+    }
+    if (mode === 'debt' && dueDate.trim() && !validateDueDate(dueDate.trim())) {
+      setError('Ngày đến hạn phải hợp lệ theo định dạng YYYY-MM-DD.');
       return;
     }
     if (mode === 'transaction') {

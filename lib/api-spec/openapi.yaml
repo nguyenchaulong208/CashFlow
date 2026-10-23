@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: gemini
+    description: Optional Gemini analysis of user-provided finance summaries
 paths:
   /healthz:
     get:
@@ -24,6 +26,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /gemini/insights:
+    post:
+      operationId: analyzeFinanceWithGemini
+      tags: [gemini]
+      summary: Analyze an explicitly submitted finance summary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinanceInsightInput"
+      responses:
+        "200":
+          description: AI-generated spending analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceInsight"
+        "400":
+          description: Invalid finance summary
+        "429":
+          description: Analysis rate limit exceeded
+        "503":
+          description: Gemini is not configured
 components:
   schemas:
     HealthStatus:
@@ -33,4 +59,41 @@ components:
           type: string
       required:
         - status
+    FinanceInsightInput:
+      type: object
+      properties:
+        period:
+          type: string
+          minLength: 1
+          maxLength: 32
+        income:
+          type: number
+          minimum: 0
+          maximum: 1000000000000000
+        expense:
+          type: number
+          minimum: 0
+          maximum: 1000000000000000
+        categories:
+          type: array
+          maxItems: 12
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                minLength: 1
+                maxLength: 48
+              amount:
+                type: number
+                minimum: 0
+                maximum: 1000000000000000
+            required: [name, amount]
+      required: [period, income, expense, categories]
+    FinanceInsight:
+      type: object
+      properties:
+        analysis:
+          type: string
+      required: [analysis]
 

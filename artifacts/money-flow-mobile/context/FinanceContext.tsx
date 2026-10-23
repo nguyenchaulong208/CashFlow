@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { cancelDebtReminder, clearDebtReminders, enableNotificationPermission, scheduleDebtReminder } from '@/utils/debtReminders';
 
 export type TransactionType = 'income' | 'expense';
 export type AssetKind = 'cash' | 'investment' | 'property' | 'business' | 'other';
@@ -28,7 +29,7 @@ export interface FinanceDebt {
   dueDate?: string;
 }
 
-interface FinanceData {
+export interface FinanceData {
   transactions: FinanceTransaction[];
   assets: FinanceAsset[];
   debts: FinanceDebt[];
@@ -36,16 +37,22 @@ interface FinanceData {
 
 interface FinanceContextValue extends FinanceData {
   ready: boolean;
+  remindersEnabled: boolean;
+  reminderError: string;
   addTransaction: (item: Omit<FinanceTransaction, 'id' | 'date'>) => void;
   addAsset: (item: Omit<FinanceAsset, 'id'>) => void;
   addDebt: (item: Omit<FinanceDebt, 'id'>) => void;
   removeTransaction: (id: string) => void;
   removeAsset: (id: string) => void;
   removeDebt: (id: string) => void;
+  enableDueReminders: () => Promise<{ granted: boolean; canAskAgain: boolean }>;
+  disableDueReminders: () => Promise<void>;
+  restoreData: (data: FinanceData) => Promise<void>;
   clearAll: () => Promise<void>;
 }
 
 const STORAGE_KEY = '@dong-tien/finance-v1';
+const REMINDERS_ENABLED_KEY = '@dong-tien/debt-reminders-enabled-v1';
 const emptyData: FinanceData = { transactions: [], assets: [], debts: [] };
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
@@ -56,12 +63,15 @@ function makeId() {
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<FinanceData>(emptyData);
   const [ready, setReady] = useState(false);
+  const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [reminderError, setReminderError] = useState('');
 
   useEffect(() => {
     let active = true;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
+    Promise.all([AsyncStorage.getItem(STORAGE_KEY), AsyncStorage.getItem(REMINDERS_ENABLED_KEY)])
+      .then(([raw, reminders]) => {
         if (!active) return;
+        setRemindersEnabled(reminders === 'true');
         if (raw) {
           try {
             const parsed = JSON.parse(raw) as Partial<FinanceData>;
@@ -93,6 +103,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<FinanceContextValue>(() => ({
     ...data,
     ready,
+    remindersEnabled,
+    reminderError,
     addTransaction: (item) => setData((prev) => ({
       ...prev,
       transactions: [{ ...item, id: makeId(), date: new Date().toISOString() }, ...prev.transactions],
@@ -101,10 +113,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       assets: [{ ...item, id: makeId() }, ...prev.assets],
     })),
-    addDebt: (item) => setData((prev) => ({
-      ...prev,
-      debts: [{ ...item, id: makeId() }, ...prev.debts],
-    })),
+    addDebt: (item) => {
+      const debt = { ...item, id: makeId() };
+      setData((prev) => ({ ...prev, debts: [debt, ...prev.debts] }));
+      setReminderError('');
+      if (remindersEnabled && debt.dueDate) {
+        void scheduleDebtReminder(debt).catch(() => setReminderError('Đã lưu khoản nợ nhưng chưa tạo được lời nhắc. Kiểm tra quyền thông báo và ngày đến hạn.'));
+      }
+    },
     removeTransaction: (id) => setData((prev) => ({
       ...prev,
       transactions: prev.transactions.filter((item) => item.id !== id),
@@ -113,15 +129,48 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       assets: prev.assets.filter((item) => item.id !== id),
     })),
-    removeDebt: (id) => setData((prev) => ({
-      ...prev,
-      debts: prev.debts.filter((item) => item.id !== id),
-    })),
+    removeDebt: (id) => {
+      setData((prev) => ({ ...prev, debts: prev.debts.filter((item) => item.id !== id) }));
+      void cancelDebtReminder(id).catch(() => setReminderError('Không thể hủy lời nhắc đã đặt.'));
+    },
+    enableDueReminders: async () => {
+      const permission = await enableNotificationPermission();
+      if (!permission.granted) return permission;
+      setReminderError('');
+      await AsyncStorage.setItem(REMINDERS_ENABLED_KEY, 'true');
+      setRemindersEnabled(true);
+      try {
+        await Promise.all(data.debts.map((debt) => scheduleDebtReminder(debt)));
+      } catch {
+        setReminderError('Không tạo được một số lời nhắc. Kiểm tra ngày đến hạn của các khoản nợ.');
+      }
+      return permission;
+    },
+    disableDueReminders: async () => {
+      await AsyncStorage.setItem(REMINDERS_ENABLED_KEY, 'false');
+      setRemindersEnabled(false);
+      await clearDebtReminders();
+      setReminderError('');
+    },
+    restoreData: async (nextData) => {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+      setData(nextData);
+      if (remindersEnabled) {
+        await clearDebtReminders();
+        try {
+          await Promise.all(nextData.debts.map((debt) => scheduleDebtReminder(debt)));
+        } catch {
+          setReminderError('Đã khôi phục dữ liệu nhưng chưa tạo được một số lời nhắc.');
+        }
+      }
+    },
     clearAll: async () => {
       await AsyncStorage.removeItem(STORAGE_KEY);
       setData(emptyData);
+      await clearDebtReminders();
+      setReminderError('');
     },
-  }), [data, ready]);
+  }), [data, ready, remindersEnabled, reminderError]);
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }
