@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { cancelDebtReminder, clearDebtReminders, enableNotificationPermission, scheduleDebtReminder } from '@/utils/debtReminders';
 
 export type TransactionType = 'income' | 'expense';
@@ -37,6 +37,7 @@ export interface FinanceData {
 
 interface FinanceContextValue extends FinanceData {
   ready: boolean;
+  loadError: string;
   remindersEnabled: boolean;
   reminderError: string;
   addTransaction: (item: Omit<FinanceTransaction, 'id' | 'date'>) => void;
@@ -49,6 +50,7 @@ interface FinanceContextValue extends FinanceData {
   disableDueReminders: () => Promise<void>;
   restoreData: (data: FinanceData) => Promise<void>;
   clearAll: () => Promise<void>;
+  retryLoad: () => Promise<void>;
 }
 
 const STORAGE_KEY = '@dong-tien/finance-v1';
@@ -63,46 +65,61 @@ function makeId() {
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<FinanceData>(emptyData);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [reminderError, setReminderError] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([AsyncStorage.getItem(STORAGE_KEY), AsyncStorage.getItem(REMINDERS_ENABLED_KEY)])
-      .then(([raw, reminders]) => {
-        if (!active) return;
-        setRemindersEnabled(reminders === 'true');
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw) as Partial<FinanceData>;
-            setData({
-              transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
-              assets: Array.isArray(parsed.assets) ? parsed.assets : [],
-              debts: Array.isArray(parsed.debts) ? parsed.debts : [],
-            });
-          } catch {
-            setData(emptyData);
-          }
+  const retryLoad = useCallback(async () => {
+    setReady(false);
+    setLoadError('');
+    try {
+      const [raw, reminders] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEY),
+        AsyncStorage.getItem(REMINDERS_ENABLED_KEY),
+      ]);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<FinanceData>;
+        if (
+          !parsed ||
+          typeof parsed !== 'object' ||
+          !Array.isArray(parsed.transactions) ||
+          !Array.isArray(parsed.assets) ||
+          !Array.isArray(parsed.debts)
+        ) {
+          throw new Error('Invalid finance data');
         }
-      })
-      .catch(() => {
-        if (active) setData(emptyData);
-      })
-      .finally(() => {
-        if (active) setReady(true);
-      });
-    return () => {
-      active = false;
-    };
+        setData({
+          transactions: parsed.transactions,
+          assets: parsed.assets,
+          debts: parsed.debts,
+        });
+      } else {
+        setData(emptyData);
+      }
+      setRemindersEnabled(reminders === 'true');
+      setReady(true);
+    } catch {
+      setLoadError('Không thể đọc dữ liệu đã lưu. Dữ liệu chưa bị xóa; hãy thử tải lại trước khi tiếp tục sử dụng.');
+    }
   }, []);
 
   useEffect(() => {
-    if (ready) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }, [data, ready]);
+    void retryLoad();
+  }, [retryLoad]);
+
+  useEffect(() => {
+    if (ready && !loadError) {
+      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data)).catch(() => {
+        setReady(false);
+        setLoadError('Không thể lưu dữ liệu trên thiết bị. Dữ liệu hiện có chưa bị xóa.');
+      });
+    }
+  }, [data, ready, loadError]);
 
   const value = useMemo<FinanceContextValue>(() => ({
     ...data,
     ready,
+    loadError,
     remindersEnabled,
     reminderError,
     addTransaction: (item) => setData((prev) => ({
@@ -170,7 +187,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       await clearDebtReminders();
       setReminderError('');
     },
-  }), [data, ready, remindersEnabled, reminderError]);
+    retryLoad,
+  }), [data, ready, loadError, remindersEnabled, reminderError, retryLoad]);
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }

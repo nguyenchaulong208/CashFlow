@@ -70,3 +70,4 @@
 ## Pointers
 
 - Xem skill pnpm-workspace để biết chi tiết workspace, TypeScript và package.
+- Xem `artifacts/money-flow-mobile/ANDROID_RELEASE.md` về build APK có ký ngoài Replit, manifest cập nhật online và yêu cầu bảo toàn dữ liệu.

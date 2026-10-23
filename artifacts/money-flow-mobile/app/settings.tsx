@@ -5,17 +5,53 @@ import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeading } from '@/components/FinanceBits';
 import { useFinance } from '@/context/FinanceContext';
 import { useColors } from '@/hooks/useColors';
 import { buildFinanceBackup, isFinanceBackup } from '@/utils/financeBackup';
+import { checkAndroidRelease } from '@/utils/androidRelease';
 
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const finance = useFinance();
   const [backupBusy, setBackupBusy] = useState(false);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const checkForAndroidUpdate = async () => {
+    setUpdateBusy(true);
+    try {
+      const result = await checkAndroidRelease();
+      if (result.status === 'current') {
+        Alert.alert('Đã cập nhật', 'Bạn đang sử dụng phiên bản mới nhất.');
+        return;
+      }
+      const { release } = result;
+      Alert.alert(
+        `Có phiên bản ${release.version}`,
+        `${release.releaseNotes ? `${release.releaseNotes}\n\n` : ''}Dữ liệu được lưu trên điện thoại và sẽ được giữ lại khi cài bản mới đè lên ứng dụng hiện tại.`,
+        [
+          { text: 'Để sau', style: 'cancel' },
+          {
+            text: 'Tải APK',
+            onPress: () => {
+              void Linking.openURL(release.apkUrl).catch(() => {
+                Alert.alert('Không mở được liên kết', 'Hãy thử lại hoặc mở liên kết tải APK trong trình duyệt.');
+              });
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      Alert.alert(
+        'Không kiểm tra được cập nhật',
+        error instanceof Error ? error.message : 'Hãy thử lại khi có kết nối mạng.',
+      );
+    } finally {
+      setUpdateBusy(false);
+    }
+  };
   const exportData = async () => {
     setBackupBusy(true);
     try {
@@ -123,6 +159,22 @@ export default function SettingsScreen() {
         <View style={{ flex: 1 }}><Text style={[styles.actionTitle, { color: colors.danger }]}>Xóa dữ liệu trên thiết bị</Text><Text style={[styles.actionSubtitle, { color: colors.mutedForeground }]}>Xóa giao dịch, tài sản và khoản nợ</Text></View>
         <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
       </Pressable>
+      {Platform.OS === 'android' && <>
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>CẬP NHẬT ỨNG DỤNG</Text>
+        <Pressable
+          onPress={checkForAndroidUpdate}
+          disabled={updateBusy}
+          style={[styles.actionRow, { backgroundColor: colors.card, borderColor: colors.border, opacity: updateBusy ? 0.55 : 1 }]}
+          testID="check-android-update"
+        >
+          <View style={[styles.actionIcon, { backgroundColor: colors.successSoft }]}><Feather name="refresh-cw" size={17} color={colors.primary} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.actionTitle, { color: colors.foreground }]}>{updateBusy ? 'Đang kiểm tra...' : 'Kiểm tra bản cập nhật APK'}</Text>
+            <Text style={[styles.actionSubtitle, { color: colors.mutedForeground }]}>Bản cài mới sẽ được cài đè; không gỡ ứng dụng</Text>
+          </View>
+          <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
+        </Pressable>
+      </>}
       <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>NHẮC HẠN TRÊN ĐIỆN THOẠI</Text>
       <Pressable onPress={toggleReminders} style={[styles.actionRow, { backgroundColor: colors.card, borderColor: colors.border }]} testID="toggle-debt-reminders">
         <View style={[styles.actionIcon, { backgroundColor: finance.remindersEnabled ? colors.successSoft : colors.muted }]}>
@@ -149,7 +201,7 @@ export default function SettingsScreen() {
           <View style={{ flex: 1 }}><Text style={[styles.actionTitle, { color: colors.foreground }]}>Gemini AI</Text><Text style={[styles.actionSubtitle, { color: colors.mutedForeground }]}>Chưa kết nối · Phân tích cơ bản vẫn chạy cục bộ</Text></View>
         </View>
       </View>
-      <Text style={[styles.version, { color: colors.mutedForeground }]}>Dòng Tiền · Phiên bản 1.0</Text>
+      <Text style={[styles.version, { color: colors.mutedForeground }]}>Dòng Tiền · Phiên bản {Constants.expoConfig?.version ?? '1.0'}</Text>
     </ScrollView>
   </View>;
 }
