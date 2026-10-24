@@ -14,7 +14,7 @@
       "supportsTablet": false
     },
     "android": {
-      "package": "com.dongtien.moneyflow",
+      "package": "theodore.moneyflow",
       "versionCode": 1
     },
     "web": {
