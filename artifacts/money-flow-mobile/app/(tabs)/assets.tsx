@@ -29,10 +29,19 @@ export default function AssetsScreen() {
   const assetTotal = declaredAssets + netTransactions;
   const debtTotal = finance.debts.reduce((sum, item) => sum + item.amount, 0);
   const net = assetTotal - debtTotal;
-  const openForm = (mode: 'asset' | 'debt') => { setFormMode(mode); setFormOpen(true); };
-  const confirmDelete = (label: string, remove: () => void) => Alert.alert(`Xóa ${label}?`, 'Thao tác này không thể hoàn tác.', [
-    { text: 'Giữ lại', style: 'cancel' }, { text: 'Xóa', style: 'destructive', onPress: remove },
-  ]);
+  const openForm = (mode: 'asset' | 'debt') => {
+    setFormMode(mode);
+    setFormOpen(true);
+  };
+  const confirmDelete = (label: string, remove: () => void) => {
+    if (!finance.storageWritable) {
+      Alert.alert('Dữ liệu đang được bảo vệ', finance.storageError || 'Khôi phục dữ liệu từ tệp sao lưu trước khi sửa.');
+      return;
+    }
+    Alert.alert(`Xóa ${label}?`, 'Thao tác này không thể hoàn tác.', [
+      { text: 'Giữ lại', style: 'cancel' }, { text: 'Xóa', style: 'destructive', onPress: remove },
+    ]);
+  };
 
   return <View style={[styles.screen, { backgroundColor: colors.background }]}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + (insets.top === 0 ? 67 : 14), paddingHorizontal: 20, paddingBottom: 114 }}>
@@ -75,7 +84,7 @@ export default function AssetsScreen() {
       </Pressable>) : <EmptyState title="Chưa có khoản nợ" detail="Theo dõi dư nợ thẻ tín dụng, vay hoặc trả góp tại đây." />}
       <Text style={[styles.longPressHint, { color: colors.mutedForeground }]}>Nhấn giữ khoản mục để xóa.</Text>
     </ScrollView>
-    <FinanceFormSheet visible={formOpen} mode={formMode} onClose={() => setFormOpen(false)}
+    <FinanceFormSheet visible={formOpen} mode={formMode} canWrite={finance.storageWritable} onClose={() => setFormOpen(false)}
       onSaveTransaction={finance.addTransaction} onSaveAsset={finance.addAsset} onSaveDebt={finance.addDebt} />
   </View>;
 }

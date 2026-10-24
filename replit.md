@@ -26,11 +26,17 @@ _Populate as you build — short repo map plus pointers to the source-of-truth f
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Finance records remain local by default. Keep the existing AsyncStorage key stable; version the schema and migrate rather than clearing user data.
+- Before each local-data write, retain a last-known-good snapshot. If data is unreadable or from a newer schema, do not overwrite it automatically.
+- Keep `android.package` stable, increment `android.versionCode` for each Android release, and sign updates with the same key. Users must install updates over the existing app rather than uninstall it.
+- Gemini is opt-in and receives only monthly totals/category aggregates after confirmation; keep `GEMINI_API_KEY` on the API server, never in the mobile bundle.
+- Google Calendar, Drive, and OneDrive must use each app user's own OAuth account, not a shared workspace integration token.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Tracks income, expenses, assets, debts, net worth, and monthly spending categories on device.
+- Supports JSON backup/restore and optional on-device due-date notifications.
+- Offers optional Gemini analysis; it requires a server-side API key. Google Calendar/cloud sync and AdMob still require their own provider setup.
 
 ## User preferences
 
@@ -38,7 +44,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Do not increment or change the finance storage key when evolving local records; add a migration and bump `FINANCE_SCHEMA_VERSION`.
+- Replit Expo publishing currently targets iOS; this workspace has no Android SDK or Gradle, so an APK cannot be produced here.
 
 ## Pointers
 

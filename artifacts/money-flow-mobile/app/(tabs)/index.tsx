@@ -86,7 +86,7 @@ export default function HomeScreen() {
           <Text style={[styles.privacyText, { color: colors.mutedForeground }]}>Dữ liệu được lưu trên thiết bị của bạn.</Text>
         </View>
       </ScrollView>
-      <FinanceFormSheet visible={formOpen} mode="transaction" onClose={() => setFormOpen(false)}
+      <FinanceFormSheet visible={formOpen} mode="transaction" canWrite={finance.storageWritable} onClose={() => setFormOpen(false)}
         onSaveTransaction={finance.addTransaction} onSaveAsset={finance.addAsset} onSaveDebt={finance.addDebt} />
     </View>
   );

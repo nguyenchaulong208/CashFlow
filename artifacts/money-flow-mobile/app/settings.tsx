@@ -94,7 +94,9 @@ export default function SettingsScreen() {
   };
   const reset = () => Alert.alert('Xóa toàn bộ dữ liệu?', 'Các giao dịch, tài sản và khoản nợ đã lưu trên thiết bị sẽ bị xóa vĩnh viễn.', [
     { text: 'Hủy', style: 'cancel' },
-    { text: 'Xóa dữ liệu', style: 'destructive', onPress: () => finance.clearAll() },
+    { text: 'Xóa dữ liệu', style: 'destructive', onPress: () => {
+      void finance.clearAll().catch(() => Alert.alert('Không thể xóa dữ liệu', 'Bộ nhớ thiết bị hiện không cho phép thay đổi dữ liệu.'));
+    } },
   ]);
 
   return <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -105,10 +107,17 @@ export default function SettingsScreen() {
       <View style={[styles.privacyCard, { backgroundColor: colors.successSoft }]}>
         <View style={[styles.privacyIcon, { backgroundColor: colors.card }]}><Feather name="shield" size={19} color={colors.primary} /></View>
         <Text style={[styles.privacyTitle, { color: colors.foreground }]}>Riêng tư là mặc định</Text>
-        <Text style={[styles.privacyDescription, { color: colors.mutedForeground }]}>Dữ liệu tài chính của bạn được lưu trên điện thoại. Ứng dụng không cần tài khoản để theo dõi thu chi cơ bản.</Text>
+        <Text style={[styles.privacyDescription, { color: colors.mutedForeground }]}>Dữ liệu tài chính được lưu trên điện thoại. Cài bản cập nhật đè lên ứng dụng hiện tại để giữ dữ liệu; không gỡ ứng dụng khi cập nhật.</Text>
       </View>
+      {!!finance.storageError && <View style={[styles.storageNotice, { backgroundColor: colors.dangerSoft }]}>
+        <Feather name="alert-triangle" size={16} color={colors.danger} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.storageNoticeTitle, { color: colors.danger }]}>{finance.storageWritable ? 'Lưu ý về bản lưu' : 'Bộ nhớ đang được bảo vệ'}</Text>
+          <Text style={[styles.storageNoticeText, { color: colors.foreground }]}>{finance.storageError}</Text>
+        </View>
+      </View>}
       <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>DỮ LIỆU CỦA BẠN</Text>
-      <Pressable onPress={exportData} disabled={backupBusy} style={[styles.actionRow, { backgroundColor: colors.card, borderColor: colors.border, opacity: backupBusy ? 0.55 : 1 }]} testID="share-backup">
+      <Pressable onPress={exportData} disabled={backupBusy || !finance.storageWritable} style={[styles.actionRow, { backgroundColor: colors.card, borderColor: colors.border, opacity: backupBusy || !finance.storageWritable ? 0.55 : 1 }]} testID="share-backup">
         <View style={[styles.actionIcon, { backgroundColor: colors.successSoft }]}><Feather name="share-2" size={17} color={colors.primary} /></View>
         <View style={{ flex: 1 }}><Text style={[styles.actionTitle, { color: colors.foreground }]}>Sao lưu ra tệp JSON</Text><Text style={[styles.actionSubtitle, { color: colors.mutedForeground }]}>Lưu hoặc chia sẻ bản sao dữ liệu</Text></View>
         <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
@@ -130,7 +139,7 @@ export default function SettingsScreen() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.actionTitle, { color: colors.foreground }]}>{finance.remindersEnabled ? 'Đang bật nhắc hạn' : 'Bật nhắc hạn khoản nợ'}</Text>
-          <Text style={[styles.actionSubtitle, { color: colors.mutedForeground }]}>Thông báo cục bộ trước ngày đến hạn 1 ngày lúc 09:00</Text>
+          <Text style={[styles.actionSubtitle, { color: colors.mutedForeground }]}>Thông báo lúc 09:00 ngày trước hạn; nếu đã qua giờ sẽ dùng ngày đến hạn</Text>
         </View>
         <Feather name={finance.remindersEnabled ? 'toggle-right' : 'toggle-left'} size={23} color={finance.remindersEnabled ? colors.primary : colors.mutedForeground} />
       </Pressable>
@@ -146,7 +155,7 @@ export default function SettingsScreen() {
         </View>
         <View style={[styles.separator, { backgroundColor: colors.border }]} />
         <View style={styles.connectionRow}><View style={[styles.actionIcon, { backgroundColor: colors.muted }]}><Feather name="zap" size={17} color={colors.secondaryForeground} /></View>
-          <View style={{ flex: 1 }}><Text style={[styles.actionTitle, { color: colors.foreground }]}>Gemini AI</Text><Text style={[styles.actionSubtitle, { color: colors.mutedForeground }]}>Chưa kết nối · Phân tích cơ bản vẫn chạy cục bộ</Text></View>
+          <View style={{ flex: 1 }}><Text style={[styles.actionTitle, { color: colors.foreground }]}>Gemini AI</Text><Text style={[styles.actionSubtitle, { color: colors.mutedForeground }]}>Tùy chọn · Cần API key để gửi bản tổng hợp</Text></View>
         </View>
       </View>
       <Text style={[styles.version, { color: colors.mutedForeground }]}>Dòng Tiền · Phiên bản 1.0</Text>
@@ -160,6 +169,9 @@ const styles = StyleSheet.create({
   privacyIcon: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   privacyTitle: { fontFamily: 'Inter_700Bold', fontSize: 15 },
   privacyDescription: { fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 18, marginTop: 7 },
+  storageNotice: { borderRadius: 14, padding: 13, marginTop: 12, flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  storageNoticeTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
+  storageNoticeText: { fontFamily: 'Inter_400Regular', fontSize: 10, lineHeight: 16, marginTop: 4 },
   sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, letterSpacing: 1.15, marginTop: 25, marginBottom: 10 },
   actionRow: { borderWidth: 1, borderRadius: 16, minHeight: 68, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11 },
   actionIcon: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },

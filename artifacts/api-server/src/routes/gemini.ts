@@ -72,7 +72,7 @@ router.post("/gemini/insights", async (req, res) => {
       contents: prompt,
       config: {
         temperature: 0.35,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 1024,
       },
     });
     const analysis = result.text?.trim();
@@ -83,7 +83,7 @@ router.post("/gemini/insights", async (req, res) => {
     }
     res.json(AnalyzeFinanceWithGeminiResponse.parse({ analysis }));
   } catch (error) {
-    req.log.error({ err: error }, "Gemini finance analysis failed");
+    req.log.error("Gemini finance analysis failed");
     res.status(502).json({ error: "Gemini analysis could not be completed." });
   }
 });

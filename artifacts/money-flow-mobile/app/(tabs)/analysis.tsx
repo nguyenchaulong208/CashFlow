@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
-import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAnalyzeFinanceWithGemini } from '@workspace/api-client-react';
 import { EmptyState, ScreenHeading } from '@/components/FinanceBits';
 import { useFinance, formatMoney } from '@/context/FinanceContext';
 import { useColors } from '@/hooks/useColors';
@@ -10,6 +11,19 @@ export default function AnalysisScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const finance = useFinance();
+  const [aiAnalysis, setAiAnalysis] = useState('');
+  const [aiError, setAiError] = useState('');
+  const gemini = useAnalyzeFinanceWithGemini({
+    mutation: {
+      onSuccess: (result) => {
+        setAiError('');
+        setAiAnalysis(result.analysis);
+      },
+      onError: () => {
+        setAiError('Gemini chưa sẵn sàng. Kiểm tra kết nối mạng và cấu hình dịch vụ.');
+      },
+    },
+  });
   const now = new Date();
   const monthItems = finance.transactions.filter((item) => {
     const date = new Date(item.date);
@@ -34,6 +48,29 @@ export default function AnalysisScreen() {
         : income >= expense
           ? `Thu nhập tháng này cao hơn chi tiêu ${formatMoney(income - expense)}. Bạn đang giữ được dòng tiền dương.`
           : `Chi tiêu đang cao hơn thu nhập ${formatMoney(expense - income)}. Hãy xem lại nhóm ${largestCategory?.[0] ?? 'chi tiêu lớn nhất'}.`;
+  const requestGeminiAnalysis = () => {
+    Alert.alert(
+      'Gửi tổng hợp cho Gemini?',
+      'Ứng dụng sẽ gửi tháng báo cáo, tổng thu, tổng chi và tên/số tiền các danh mục chi để phân tích. Ghi chú và từng giao dịch không được gửi. Google xử lý dữ liệu theo tài khoản Gemini API đã cấu hình.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Gửi để phân tích',
+          onPress: () => {
+            setAiError('');
+            gemini.mutate({
+              data: {
+                period: month,
+                income,
+                expense,
+                categories: grouped.map(([name, amount]) => ({ name, amount })),
+              },
+            });
+          },
+        },
+      ],
+    );
+  };
 
   return <View style={[styles.screen, { backgroundColor: colors.background }]}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + (insets.top === 0 ? 67 : 14), paddingHorizontal: 20, paddingBottom: 114 }}>
@@ -79,9 +116,19 @@ export default function AnalysisScreen() {
         })}
       </View> : <EmptyState title="Chưa đủ dữ liệu phân tích" detail="Thêm các khoản thu chi để xem tỷ trọng chi tiêu theo danh mục." />}
       <View style={[styles.aiNote, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <Feather name="zap" size={17} color={colors.gold} />
-        <View style={{ flex: 1 }}><Text style={[styles.aiTitle, { color: colors.foreground }]}>Phân tích Gemini (tùy chọn)</Text>
-          <Text style={[styles.aiDescription, { color: colors.mutedForeground }]}>Chưa kết nối. Phân tích hiện tại chỉ dùng dữ liệu lưu cục bộ.</Text></View>
+        <View style={styles.aiHeader}>
+          <View style={[styles.aiIcon, { backgroundColor: colors.accent }]}><Feather name="zap" size={16} color={colors.gold} /></View>
+          <View style={{ flex: 1 }}><Text style={[styles.aiTitle, { color: colors.foreground }]}>Phân tích Gemini (tùy chọn)</Text>
+            <Text style={[styles.aiDescription, { color: colors.mutedForeground }]}>Chỉ gửi số liệu tổng hợp sau khi bạn xác nhận.</Text></View>
+        </View>
+        {!!aiAnalysis && <Text style={[styles.aiResult, { color: colors.foreground }]}>{aiAnalysis}</Text>}
+        {!!aiError && <Text style={[styles.aiError, { color: colors.danger }]}>{aiError}</Text>}
+        <Pressable onPress={requestGeminiAnalysis} disabled={gemini.isPending}
+          style={[styles.aiButton, { backgroundColor: colors.primary, opacity: gemini.isPending ? 0.6 : 1 }]} testID="request-gemini-analysis">
+          <Feather name={gemini.isPending ? 'loader' : 'zap'} size={15} color="#FFFFFF" />
+          <Text style={styles.aiButtonText}>{gemini.isPending ? 'Đang phân tích…' : aiAnalysis ? 'Phân tích lại với Gemini' : 'Yêu cầu phân tích Gemini'}</Text>
+        </Pressable>
+        <Text style={[styles.localNote, { color: colors.mutedForeground }]}>Phân tích cơ bản phía trên luôn chạy cục bộ, không cần gửi dữ liệu đi đâu.</Text>
       </View>
     </ScrollView>
   </View>;
@@ -119,7 +166,13 @@ const styles = StyleSheet.create({
   categoryTrack: { flex: 1, height: 5, borderRadius: 5 },
   categoryFill: { height: 5, borderRadius: 5 },
   shareText: { width: 32, textAlign: 'right', fontFamily: 'Inter_500Medium', fontSize: 10 },
-  aiNote: { flexDirection: 'row', gap: 11, alignItems: 'center', borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 18 },
+  aiNote: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 18 },
+  aiHeader: { flexDirection: 'row', gap: 11, alignItems: 'center' },
+  aiIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   aiTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
   aiDescription: { fontFamily: 'Inter_400Regular', fontSize: 10, lineHeight: 15, marginTop: 4 },
+  aiResult: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 19, marginTop: 13 },
+  aiError: { fontFamily: 'Inter_500Medium', fontSize: 11, lineHeight: 16, marginTop: 11 },
+  aiButton: { minHeight: 43, borderRadius: 13, marginTop: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  aiButtonText: { color: '#FFFFFF', fontFamily: 'Inter_600SemiBold', fontSize: 11 },
 });

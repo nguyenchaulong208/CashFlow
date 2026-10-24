@@ -11,6 +11,7 @@ type FormMode = 'transaction' | 'asset' | 'debt';
 interface Props {
   visible: boolean;
   mode: FormMode;
+  canWrite: boolean;
   onClose: () => void;
   onSaveTransaction: (value: { type: TransactionType; amount: number; category: string; note: string }) => void;
   onSaveAsset: (value: { name: string; kind: AssetKind; value: number }) => void;
@@ -27,7 +28,7 @@ const kinds: { key: AssetKind; label: string }[] = [
 ];
 const debtKinds = ['Vay', 'Thẻ tín dụng', 'Trả góp', 'Khác'];
 
-export function FinanceFormSheet({ visible, mode, onClose, onSaveTransaction, onSaveAsset, onSaveDebt }: Props) {
+export function FinanceFormSheet({ visible, mode, canWrite, onClose, onSaveTransaction, onSaveAsset, onSaveDebt }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [type, setType] = useState<TransactionType>('expense');
@@ -55,6 +56,10 @@ export function FinanceFormSheet({ visible, mode, onClose, onSaveTransaction, on
   }, [visible, mode]);
 
   const submit = () => {
+    if (!canWrite) {
+      setError('Bản lưu đang được bảo vệ. Khôi phục dữ liệu từ tệp JSON trong Cài đặt trước khi tiếp tục.');
+      return;
+    }
     const numericAmount = Number(amount.replace(/[^\d]/g, ''));
     if (!numericAmount || numericAmount < 1) {
       setError('Nhập số tiền lớn hơn 0.');

@@ -7,13 +7,13 @@
     "icon": "./assets/images/icon.png",
     "scheme": "money-flow-mobile",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#F6F8F5"
-    },
     "ios": {
       "supportsTablet": false
     },
-    "android": {},
+    "android": {
+      "package": "com.dongtien.personalfinance",
+      "versionCode": 1
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -21,7 +21,13 @@
       "expo-router",
       "expo-notifications",
       "expo-secure-store",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F6F8F5"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

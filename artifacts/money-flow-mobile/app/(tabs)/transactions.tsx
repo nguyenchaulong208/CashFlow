@@ -17,9 +17,15 @@ export default function TransactionsScreen() {
   const [formOpen, setFormOpen] = useState(false);
   const filtered = useMemo(() => finance.transactions.filter((item) => filter === 'all' || item.type === filter), [finance.transactions, filter]);
   const sum = filtered.reduce((total, item) => total + (item.type === 'income' ? item.amount : -item.amount), 0);
-  const removeItem = (id: string) => Alert.alert('Xóa giao dịch?', 'Thao tác này không thể hoàn tác.', [
-    { text: 'Giữ lại', style: 'cancel' }, { text: 'Xóa', style: 'destructive', onPress: () => finance.removeTransaction(id) },
-  ]);
+  const removeItem = (id: string) => {
+    if (!finance.storageWritable) {
+      Alert.alert('Dữ liệu đang được bảo vệ', finance.storageError || 'Khôi phục dữ liệu từ tệp sao lưu trước khi sửa.');
+      return;
+    }
+    Alert.alert('Xóa giao dịch?', 'Thao tác này không thể hoàn tác.', [
+      { text: 'Giữ lại', style: 'cancel' }, { text: 'Xóa', style: 'destructive', onPress: () => finance.removeTransaction(id) },
+    ]);
+  };
 
   return <View style={[styles.screen, { backgroundColor: colors.background }]}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + (insets.top === 0 ? 67 : 14), paddingHorizontal: 20, paddingBottom: 115 }}>
@@ -46,7 +52,7 @@ export default function TransactionsScreen() {
         detail="Thêm khoản đầu tiên để bắt đầu theo dõi dòng tiền." />}
       {!!filtered.length && <Text style={[styles.hint, { color: colors.mutedForeground }]}>Nhấn giữ một giao dịch để xóa.</Text>}
     </ScrollView>
-    <FinanceFormSheet visible={formOpen} mode="transaction" onClose={() => setFormOpen(false)}
+    <FinanceFormSheet visible={formOpen} mode="transaction" canWrite={finance.storageWritable} onClose={() => setFormOpen(false)}
       onSaveTransaction={finance.addTransaction} onSaveAsset={finance.addAsset} onSaveDebt={finance.addDebt} />
   </View>;
 }
