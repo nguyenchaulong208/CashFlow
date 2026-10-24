@@ -1,0 +1,1 @@
+- [Expo SDK 57 config](expo-57-config.md) — use the `expo-splash-screen` plugin; this SDK rejects the legacy top-level `expo.splash` property.
