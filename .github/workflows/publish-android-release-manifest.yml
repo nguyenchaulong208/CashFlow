@@ -1,0 +1,30 @@
+name: Publish Android update manifest
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  publish-manifest:
+    if: github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Generate latest.json from the release
+        run: node scripts/publish-android-release-manifest.mjs
+        env:
+          ANDROID_RELEASE_MANIFEST_OUTPUT: ${{ runner.temp }}/android-release/latest.json
+
+      - name: Attach manifest to the GitHub Release
+        run: gh release upload "$RELEASE_TAG" "$MANIFEST_PATH" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          MANIFEST_PATH: ${{ runner.temp }}/android-release/latest.json

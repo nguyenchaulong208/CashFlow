@@ -39,28 +39,46 @@ does not silently replace the user's stored data.
 The generated `android/` directory is ignored by Git. Keep the source of truth
 in `app.json`; regenerate the native project after changing Expo config.
 
-## Configure online APK checks
+## Publish APKs through this GitHub repository
 
-The Android Settings screen checks a public HTTPS JSON manifest. Set
-`EXPO_PUBLIC_ANDROID_RELEASE_MANIFEST_URL` at build time to its stable URL. The
-manifest and APK can be hosted on any HTTPS service that permits public reads.
-The manifest format is:
+The app checks this stable public manifest URL by default:
+
+`https://github.com/nguyenchaulong208/CashFlow/releases/latest/download/latest.json`
+
+To host updates elsewhere, override it with
+`EXPO_PUBLIC_ANDROID_RELEASE_MANIFEST_URL` at build time.
+
+To publish a release:
+
+1. Update `expo.version` and increase `expo.android.versionCode` in `app.json`.
+2. Build and sign the APK outside Replit with the same keystore used for all
+   previous releases.
+3. In GitHub, create a **stable** Release whose tag matches the app version,
+   such as `v1.0.1`. Attach exactly one signed `.apk` file before publishing it.
+4. Publish the Release. The workflow
+   `.github/workflows/publish-android-release-manifest.yml` creates and attaches
+   `latest.json` automatically. It reads the package name, version and
+   `versionCode` from `app.json`, and the APK download URL and release notes
+   from the GitHub Release.
+
+The generated manifest has this format:
 
 ```json
 {
   "packageName": "com.dongtien.moneyflow",
   "version": "1.0.1",
   "versionCode": 2,
-  "apkUrl": "https://downloads.example.com/dong-tien-1.0.1.apk",
+  "apkUrl": "https://github.com/nguyenchaulong208/CashFlow/releases/download/v1.0.1/dong-tien-1.0.1.apk",
   "releaseNotes": "Cải thiện độ ổn định."
 }
 ```
 
-Publish the APK first, then update the manifest to point to it. The app checks
-that the manifest is HTTPS, matches this application ID, and advertises a higher
-`versionCode` before opening the download link. Android handles installation and
-requires the user to confirm it; if prompted, they must allow APK installation
-from the browser they used to download it.
+The manifest URL starts working after the first stable Release publishes and the
+workflow attaches `latest.json`. The app checks that the manifest is HTTPS,
+matches this application ID, and advertises a higher `versionCode` before
+opening the APK download link. Android handles installation and requires the
+user to confirm it; if prompted, they must allow APK installation from the
+browser they used to download it.
 
-Until a public manifest URL and signed APK are hosted and configured at build
-time, the update button will report that updates are not configured.
+The GitHub repository and its Releases must remain public so installed apps can
+download the manifest and APK without signing in.
